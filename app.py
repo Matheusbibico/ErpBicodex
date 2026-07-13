@@ -161,7 +161,8 @@ def calcular_linha(produto, cfg):
     # Custos.
     custo_material = (gramas / 1000) * cfg["preco_filamento_kg"]
     custo_tempo = horas * cfg["custo_maquina_hora"]
-    custo_total = custo_material + custo_tempo + embalagem
+    outros = cfg.get("outros_custos", 0.0)  # ex.: argola, ímã (vem das Configurações)
+    custo_total = custo_material + custo_tempo + embalagem + outros
 
     # Margem desejada: a do produto ou, se não tiver, a padrão da config.
     margem_alvo = db._para_float(produto.get("margem_pct"), 0.0)
@@ -237,6 +238,14 @@ def barra_lateral():
         step=0.10,
         format="%.2f",
     )
+    outros_custos = st.sidebar.number_input(
+        "Outros custos por peça (R$)",
+        min_value=0.0,
+        value=float(cfg["outros_custos"]),
+        step=0.10,
+        format="%.2f",
+        help="Custos fixos por peça, ex.: argola, ímã, fita. Somado no custo de todo produto.",
+    )
     imposto_pct = st.sidebar.number_input(
         "Imposto sobre a venda (%)",
         min_value=0.0,
@@ -268,6 +277,7 @@ def barra_lateral():
                 "preco_filamento_kg": preco_filamento,
                 "custo_maquina_hora": custo_maquina,
                 "embalagem_padrao": embalagem_padrao,
+                "outros_custos": outros_custos,
                 "imposto_pct": imposto_pct,
                 "margem_desejada": margem_desejada,
                 "cpf_alto_volume": cpf_alto_volume,
@@ -289,6 +299,7 @@ def barra_lateral():
         "preco_filamento_kg": preco_filamento,
         "custo_maquina_hora": custo_maquina,
         "embalagem_padrao": embalagem_padrao,
+        "outros_custos": outros_custos,
         "imposto_pct": imposto_pct,
         "margem_desejada": margem_desejada,
         "cpf_alto_volume": cpf_alto_volume,
@@ -402,6 +413,7 @@ def pagina_produtos(cfg):
         f"Usando: filamento R$ {cfg['preco_filamento_kg']:.2f}/kg · "
         f"máquina R$ {cfg['custo_maquina_hora']:.2f}/h · "
         f"embalagem R$ {cfg['embalagem_padrao']:.2f} · "
+        f"outros R$ {cfg['outros_custos']:.2f} · "
         f"margem padrão {cfg['margem_desejada']:.0f}% (tudo das Configurações)."
     )
     df_result = calcular_tabela(editado, cfg)

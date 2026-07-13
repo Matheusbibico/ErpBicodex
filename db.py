@@ -94,6 +94,7 @@ CONFIG_PADRAO = {
     "preco_filamento_kg": "120",   # R$ por kg de filamento
     "custo_maquina_hora": "0.50",  # R$ por hora de máquina/energia
     "embalagem_padrao": "1.50",    # R$ de embalagem padrão
+    "outros_custos": "0",          # R$ de outros custos por peça (argola etc.)
     "imposto_pct": "0",            # % de imposto sobre a venda
     "margem_desejada": "50",       # % de lucro desejado por venda (padrão)
     "cpf_alto_volume": "0",        # "1" = marcado, "0" = desmarcado
@@ -159,6 +160,7 @@ def ler_config():
         "preco_filamento_kg": _para_float(bruto["preco_filamento_kg"], 120.0),
         "custo_maquina_hora": _para_float(bruto["custo_maquina_hora"], 0.50),
         "embalagem_padrao": _para_float(bruto["embalagem_padrao"], 1.50),
+        "outros_custos": _para_float(bruto["outros_custos"], 0.0),
         "imposto_pct": _para_float(bruto["imposto_pct"], 0.0),
         "margem_desejada": _para_float(bruto["margem_desejada"], 50.0),
         "cpf_alto_volume": str(bruto["cpf_alto_volume"]) in ("1", "True", "true"),
@@ -175,6 +177,7 @@ def salvar_config(dados):
         "preco_filamento_kg": str(dados.get("preco_filamento_kg", 120.0)),
         "custo_maquina_hora": str(dados.get("custo_maquina_hora", 0.50)),
         "embalagem_padrao": str(dados.get("embalagem_padrao", 1.50)),
+        "outros_custos": str(dados.get("outros_custos", 0.0)),
         "imposto_pct": str(dados.get("imposto_pct", 0.0)),
         "margem_desejada": str(dados.get("margem_desejada", 50.0)),
         # bool True/False vira "1"/"0".
