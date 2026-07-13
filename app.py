@@ -346,7 +346,7 @@ def mostrar_tabela_resultados(df_result):
             }
         )
     )
-    st.dataframe(estilizada, use_container_width=True)
+    st.dataframe(estilizada, width="stretch")
 
 
 # ---------------------------------------------------------------------------
@@ -384,7 +384,7 @@ def pagina_produtos(cfg):
     editado = st.data_editor(
         df_db,
         num_rows="dynamic",
-        use_container_width=True,
+        width="stretch",
         key="editor_produtos",
         column_order=["nome", "sku", "gramas", "horas", "margem_pct"],
         column_config={
@@ -467,17 +467,22 @@ def _garantir_codigos(df):
 def formulario_adicionar(cfg):
     """Formulário simples para cadastrar um produto, com autofill via .3mf."""
     with st.expander("➕ Adicionar produto", expanded=True):
-        # Valores "pré-preenchidos" (ex.: lidos do .3mf) ficam guardados aqui.
+        # Dois contadores para "zerar" os campos: um para os campos digitados
+        # (form_ver) e outro só para o seletor de arquivo (up_ver). Trocar a "key"
+        # de um widget cria um widget novo e vazio — é a forma mais confiável de limpar.
         st.session_state.setdefault("form_ver", 0)
-        st.session_state.setdefault("auto_g", 0.0)
-        st.session_state.setdefault("auto_h", 0.0)
+        st.session_state.setdefault("up_ver", 0)
+        # Valores lidos do .3mf ficam guardados aqui (None = campo vazio).
+        st.session_state.setdefault("auto_g", None)
+        st.session_state.setdefault("auto_h", None)
         ver = st.session_state["form_ver"]
+        upv = st.session_state["up_ver"]
 
         # (Opcional) Ler gramas e horas de um .3mf fatiado.
         arquivo = st.file_uploader(
             "Arquivo .3mf (opcional) — preenche gramas e horas sozinho",
             type=["3mf"],
-            key="arq_novo",
+            key=f"arq_{upv}",
         )
         if st.button("📥 Ler dados do .3mf"):
             if arquivo is None:
@@ -487,7 +492,7 @@ def formulario_adicionar(cfg):
                 if dados is not None:
                     st.session_state["auto_g"] = dados["gramas"]
                     st.session_state["auto_h"] = dados["horas"]
-                    st.session_state["form_ver"] += 1  # força os campos a atualizarem
+                    st.session_state["form_ver"] += 1  # atualiza os campos com os valores lidos
                     st.success(
                         f"Li do arquivo: {dados['gramas']:.1f} g e "
                         f"{dados['horas']:.2f} h. Confira e adicione. 👇"
@@ -499,28 +504,31 @@ def formulario_adicionar(cfg):
                         "dentro dele). Digite os valores na mão abaixo."
                     )
 
-        # Campos do produto. gramas/horas usam key com "ver" pra aceitar o autofill.
+        # Campos do produto. Todos usam key com "ver" para poderem ser limpos de vez.
         coln, colc = st.columns([2, 1])
-        nome = coln.text_input("Nome do produto", key="novo_nome")
+        nome = coln.text_input("Nome do produto", key=f"novo_nome_{ver}")
         codigo = colc.text_input(
             "Código / SKU",
-            key="novo_sku_input",
+            key=f"novo_sku_{ver}",
             help="O código do produto (ex.: o SKU da Shopee). "
             "Se deixar vazio, o app gera um automático.",
         )
         c1, c2, c3 = st.columns(3)
+        # value=None deixa o campo VAZIO (sem aquele 0 que precisa apagar).
         gramas = c1.number_input(
             "Gramas de filamento",
             min_value=0.0,
-            value=float(st.session_state["auto_g"]),
+            value=st.session_state["auto_g"],
             step=1.0,
+            placeholder="ex.: 100",
             key=f"novo_g_{ver}",
         )
         horas = c2.number_input(
             "Horas de impressão",
             min_value=0.0,
-            value=float(st.session_state["auto_h"]),
+            value=st.session_state["auto_h"],
             step=0.5,
+            placeholder="ex.: 4",
             key=f"novo_h_{ver}",
         )
         margem = c3.number_input(
@@ -536,29 +544,38 @@ def formulario_adicionar(cfg):
         )
 
         if st.button("➕ Adicionar produto", type="primary"):
-            codigo_limpo = codigo.strip()
+            codigo_limpo = (codigo or "").strip()
             # Códigos que já existem (pra não repetir e bagunçar os arquivos .3mf).
             existentes = set(db.ler_produtos()["sku"].astype(str).str.strip())
 
-            if nome.strip() == "":
+            if (nome or "").strip() == "":
                 st.error("Dê um nome ao produto.")
             elif codigo_limpo != "" and codigo_limpo in existentes:
                 st.error(f"Já existe um produto com o código '{codigo_limpo}'. Use outro.")
             else:
                 # Usa o código digitado; se veio vazio, gera um automático.
                 sku = codigo_limpo if codigo_limpo != "" else novo_sku()
-                db.adicionar_produto(nome, sku, gramas, horas, margem)
+                # gramas/horas podem vir None (campo vazio) -> viram 0.
+                db.adicionar_produto(
+                    nome, sku,
+                    db._para_float(gramas, 0.0),
+                    db._para_float(horas, 0.0),
+                    db._para_float(margem, cfg["margem_desejada"]),
+                )
                 # Se enviou um .3mf, guarda também (pra abrir no Bambu depois).
                 if arquivo is not None:
                     db.salvar_arquivo(sku, arquivo.name, arquivo.getvalue())
-                # Limpa o formulário para o próximo cadastro.
-                for k in ["novo_nome", "novo_sku_input", "arq_novo"]:
-                    st.session_state.pop(k, None)
-                st.session_state["auto_g"] = 0.0
-                st.session_state["auto_h"] = 0.0
+                # LIMPA TUDO: novos "ver" = widgets novos e vazios; some o arquivo também.
+                st.session_state["auto_g"] = None
+                st.session_state["auto_h"] = None
                 st.session_state["form_ver"] += 1
-                st.success(f"Produto '{nome.strip()}' adicionado!")
+                st.session_state["up_ver"] += 1
+                st.session_state["msg_ok"] = f"Produto '{(nome or '').strip()}' adicionado!"
                 st.rerun()
+
+        # Mostra o aviso de sucesso depois do rerun (senão some rápido demais).
+        if st.session_state.get("msg_ok"):
+            st.success(st.session_state.pop("msg_ok"))
 
 
 def secao_arquivos_3mf():
@@ -592,20 +609,25 @@ def secao_arquivos_3mf():
         nome_arquivo, conteudo = atual
         st.success(f"Arquivo atual: **{nome_arquivo}**")
 
+        # Prepara a URL pública do arquivo e o link do Bambu Studio.
+        url, deep_link = preparar_link_3mf(sku, nome_arquivo, conteudo)
+        base = _base_url()
+        base_publica = base.startswith("https://")  # precisa ser https público (Railway)
+
         col1, col2 = st.columns(2)
         with col1:
-            # (A) Botão de download simples e confiável.
+            # (A) Jeito mais confiável: baixar e abrir o arquivo (carrega o modelo).
             st.download_button(
-                "⬇️ Baixar .3mf",
+                "⬇️ Baixar .3mf (recomendado)",
                 data=conteudo,
                 file_name=nome_arquivo,
                 mime="application/vnd.ms-3mfdocument",
+                type="primary",
             )
         with col2:
-            # (B) Link que abre direto no Bambu Studio (clique único).
-            _url, deep_link = preparar_link_3mf(sku, nome_arquivo, conteudo)
+            # (B) Link que tenta abrir direto no Bambu Studio (clique único).
             st.markdown(
-                f'<a href="{deep_link}" target="_blank" '
+                f'<a href="{deep_link}" '
                 f'style="display:inline-block;padding:0.5rem 1rem;background:#00a86b;'
                 f'color:white;border-radius:0.5rem;text-decoration:none;">'
                 f'🧊 Abrir no Bambu Studio</a>',
@@ -613,11 +635,31 @@ def secao_arquivos_3mf():
             )
 
         st.caption(
-            "Se o link não abrir o programa, use o botão **Baixar .3mf** — no Mac, "
-            "com o Bambu Studio associado ao tipo `.3mf`, o arquivo abre ao clicar. "
-            "O link direto exige o Bambu Studio instalado e só funciona no computador "
-            "(não no celular)."
+            "**Recomendado:** clique em **Baixar .3mf** — o arquivo abre no Bambu "
+            "Studio já com o modelo carregado (no Mac, com o `.3mf` associado ao "
+            "programa). Dica: no navegador, marque *“sempre abrir arquivos deste "
+            "tipo”* para virar 1 clique."
         )
+
+        # Diagnóstico do link direto (a causa nº 1 de "abre mas não carrega").
+        if not base_publica:
+            st.warning(
+                "⚠️ O link **Abrir no Bambu Studio** só funciona com o app publicado "
+                "e a variável **APP_BASE_URL** configurada no Railway (com o endereço "
+                "https do site). Sem isso, o Bambu abre mas não acha o arquivo — que é "
+                "exatamente o que acontece agora. Enquanto isso, use o **Baixar .3mf**."
+            )
+        with st.expander("🔧 Testar o link do arquivo (avançado)"):
+            st.caption(
+                "O Bambu Studio precisa BAIXAR o arquivo deste endereço. "
+                "Clique para conferir se ele abre/baixa o `.3mf`:"
+            )
+            st.markdown(f"[{url}]({url})")
+            st.caption(
+                "Se esse endereço **não** baixar o arquivo (ou aparecer como "
+                "`localhost`), o link do Bambu não vai carregar. O download acima "
+                "sempre funciona."
+            )
 
         if st.button("🗑️ Remover este arquivo"):
             db.excluir_arquivo(sku)
