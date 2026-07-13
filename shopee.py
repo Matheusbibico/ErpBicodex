@@ -32,21 +32,21 @@ def taxa_shopee(preco, cpf_alto_volume=False):
     except (TypeError, ValueError):
         return 0.0
 
-    # Faixas de comissão de 2026.
+    # Faixas de comissão de 2026 (iguais à calculadora Shopee 3D usada na loja).
     if preco < 8:
-        # Itens muito baratos: metade do preço vai para a Shopee.
-        comissao = preco * 0.50
+        # Itens muito baratos: 20% de comissão + 50% do preço de taxa fixa (= 70%).
+        comissao = preco * 0.20 + preco * 0.50
     elif preco < 80:
         # 8 <= preco < 80
         comissao = preco * 0.20 + 4
-    elif preco < 100:
-        # 80 <= preco < 100
-        comissao = preco * 0.14 + 16
     elif preco < 200:
-        # 100 <= preco < 200
+        # 80 <= preco < 200
+        comissao = preco * 0.14 + 16
+    elif preco < 500:
+        # 200 <= preco < 500
         comissao = preco * 0.14 + 20
     else:
-        # preco >= 200
+        # preco >= 500
         comissao = preco * 0.14 + 26
 
     # Taxa extra de R$3 por item para CPF de alto volume (só a partir de R$8).
@@ -62,14 +62,15 @@ def taxa_shopee(preco, cpf_alto_volume=False):
 if __name__ == "__main__":
     # Cada tupla é: (preco, cpf_alto_volume, valor_esperado)
     casos = [
-        (5, False, 5 * 0.50),              # faixa < 8  -> 2.50
-        (5, True, 5 * 0.50),               # CPF alto volume NÃO soma abaixo de 8
+        (5, False, 5 * 0.70),              # faixa < 8 (20% + 50%) -> 3.50
+        (5, True, 5 * 0.70),               # CPF alto volume NÃO soma abaixo de 8
         (10, False, 10 * 0.20 + 4),        # 8..80      -> 6.00
         (10, True, 10 * 0.20 + 4 + 3),     # + R$3      -> 9.00
-        (80, False, 80 * 0.14 + 16),       # 80..100    -> 27.20
-        (100, False, 100 * 0.14 + 20),     # 100..200   -> 34.00
-        (200, False, 200 * 0.14 + 26),     # >= 200     -> 54.00
-        (250, True, 250 * 0.14 + 26 + 3),  # >= 200 +R$3 -> 64.00
+        (80, False, 80 * 0.14 + 16),       # 80..200    -> 27.20
+        (150, False, 150 * 0.14 + 16),     # 80..200    -> 37.00
+        (200, False, 200 * 0.14 + 20),     # 200..500   -> 48.00
+        (500, False, 500 * 0.14 + 26),     # >= 500     -> 96.00
+        (600, True, 600 * 0.14 + 26 + 3),  # >= 500 +R$3 -> 113.00
     ]
 
     tudo_ok = True

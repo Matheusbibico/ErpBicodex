@@ -8,13 +8,15 @@ Funciona no Mac (local) e no Railway (nuvem, dá pra acessar do celular).
 
 ## O que ele faz
 
-- **Produtos**: você cadastra só o **nome, as gramas de filamento e as horas de
-  impressão**. O preço do filamento, o custo de energia e a embalagem vêm
-  automaticamente das **Configurações**. O **preço de venda é calculado sozinho**
-  para atingir a **margem de lucro desejada** (padrão **50%**, que você pode
-  aumentar — geral nas Configurações ou por produto), já embutindo a taxa da
-  Shopee. Tudo é calculado e **salvo automaticamente** — pintando de **verde**
-  quem dá lucro e de **vermelho** quem está no prejuízo.
+- **Produtos**: você cadastra só o **nome, o código/SKU, as gramas de filamento e
+  as horas de impressão**. O preço do filamento, o custo de energia e a embalagem
+  vêm automaticamente das **Configurações**. O **preço de venda é calculado
+  sozinho** para atingir a **margem de lucro desejada**, já embutindo a taxa da
+  Shopee. A margem é **markup sobre o custo** (igual à calculadora Shopee 3D):
+  50% = ganhar metade do custo por cima; 150% é o mínimo saudável. Você ajusta a
+  margem padrão nas Configurações ou por produto. Tudo é calculado e **salvo
+  automaticamente** — pintando de **verde** quem dá lucro e de **vermelho** quem
+  está no prejuízo.
 - **Autofill por .3mf**: ao cadastrar, você pode enviar um `.3mf` fatiado e o app
   lê de dentro dele as **gramas** e o **tempo de impressão**, preenchendo os
   campos sozinho (você só confere). Se o `.3mf` não estiver fatiado, ele avisa e
@@ -98,13 +100,13 @@ python shopee.py
 
 Valor total cobrado pela Shopee por item, conforme o preço:
 
-| Faixa de preço        | Cálculo                 |
-|-----------------------|-------------------------|
-| menor que R$ 8        | `preço × 0,50`          |
-| R$ 8 a R$ 80          | `preço × 0,20 + 4`      |
-| R$ 80 a R$ 100        | `preço × 0,14 + 16`     |
-| R$ 100 a R$ 200       | `preço × 0,14 + 20`     |
-| R$ 200 ou mais        | `preço × 0,14 + 26`     |
+| Faixa de preço        | Cálculo                      |
+|-----------------------|------------------------------|
+| menor que R$ 8        | `preço × 0,20 + preço × 0,50` (= 70% do preço) |
+| R$ 8 a R$ 80          | `preço × 0,20 + 4`           |
+| R$ 80 a R$ 200        | `preço × 0,14 + 16`          |
+| R$ 200 a R$ 500       | `preço × 0,14 + 20`          |
+| R$ 500 ou mais        | `preço × 0,14 + 26`          |
 
 - Se você for **CPF com +450 pedidos em 90 dias**, soma **+R$ 3** por item (só
   para preços a partir de R$ 8).

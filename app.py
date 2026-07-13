@@ -176,7 +176,8 @@ def calcular_linha(produto, cfg):
         preco, taxa, lucro = calculado
 
     imposto = preco * (cfg["imposto_pct"] / 100)
-    margem_real = (lucro / preco * 100) if preco > 0 else 0.0
+    # Margem REAL = markup sobre o custo (lucro dividido pelo custo), igual à calculadora.
+    margem_real = (lucro / custo_total * 100) if custo_total > 0 else 0.0
 
     return {
         "Nome": produto.get("nome", ""),
@@ -187,7 +188,7 @@ def calcular_linha(produto, cfg):
         "Taxa Shopee": taxa,
         "Imposto": imposto,
         "Lucro (R$)": lucro,
-        "Margem (%)": margem_real,
+        "Margem real (%)": margem_real,
     }
 
 
@@ -247,12 +248,12 @@ def barra_lateral():
     margem_desejada = st.sidebar.number_input(
         "Margem de lucro desejada (%)",
         min_value=0.0,
-        max_value=95.0,
+        max_value=500.0,
         value=float(cfg["margem_desejada"]),
-        step=5.0,
+        step=10.0,
         format="%.0f",
-        help="Quanto você quer ganhar em cada venda. O preço é calculado sozinho "
-        "para atingir essa margem. Padrão 50% — pode aumentar quando quiser.",
+        help="MARKUP SOBRE O CUSTO (igual à calculadora): 50% = ganhar metade do "
+        "custo por cima; 150% = o mínimo saudável. O preço é calculado sozinho.",
     )
     cpf_alto_volume = st.sidebar.toggle(
         "Sou CPF com +450 pedidos em 90 dias",
@@ -330,7 +331,7 @@ def mostrar_tabela_resultados(df_result):
                 "Taxa Shopee": "R$ {:.2f}",
                 "Imposto": "R$ {:.2f}",
                 "Lucro (R$)": "R$ {:.2f}",
-                "Margem (%)": "{:.1f}%",
+                "Margem real (%)": "{:.0f}%",
             }
         )
     )
@@ -381,8 +382,8 @@ def pagina_produtos(cfg):
             "gramas": st.column_config.NumberColumn("Gramas filamento", min_value=0.0, step=1.0),
             "horas": st.column_config.NumberColumn("Horas impressão", min_value=0.0, step=0.5),
             "margem_pct": st.column_config.NumberColumn(
-                "Margem alvo (%)", min_value=0.0, max_value=95.0, step=5.0, format="%.0f",
-                help="0 = usa a margem padrão das Configurações.",
+                "Margem alvo (%)", min_value=0.0, max_value=500.0, step=10.0, format="%.0f",
+                help="Markup sobre o custo. 0 = usa a margem padrão das Configurações.",
             ),
         },
     )
@@ -513,13 +514,13 @@ def formulario_adicionar(cfg):
         margem = c3.number_input(
             "Margem de lucro (%)",
             min_value=0.0,
-            max_value=95.0,
+            max_value=500.0,
             value=float(cfg["margem_desejada"]),  # já vem com a margem padrão (ex.: 50)
-            step=5.0,
+            step=10.0,
             format="%.0f",
             key=f"novo_m_{ver}",
-            help="O preço é calculado sozinho para atingir essa margem. "
-            "Aumente se quiser ganhar mais neste produto.",
+            help="Markup sobre o custo (igual à calculadora). O preço é calculado "
+            "sozinho. Aumente se quiser ganhar mais neste produto.",
         )
 
         if st.button("➕ Adicionar produto", type="primary"):
@@ -636,13 +637,13 @@ def pagina_dashboard(cfg):
     # Métricas principais.
     num_produtos = len(df_result)
     lucro_total = df_result["Lucro (R$)"].sum()
-    margem_media = df_result["Margem (%)"].mean()
+    margem_media = df_result["Margem real (%)"].mean()
     no_prejuizo = int((df_result["Lucro (R$)"] < 0).sum())
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Produtos", num_produtos)
     col2.metric("Lucro total", f"R$ {lucro_total:.2f}")
-    col3.metric("Margem média", f"{margem_media:.1f}%")
+    col3.metric("Margem média", f"{margem_media:.0f}%")
     col4.metric("No prejuízo", no_prejuizo)
 
     st.divider()
@@ -668,48 +669,71 @@ def pagina_dashboard(cfg):
 # ---------------------------------------------------------------------------
 def calcular_preco_para_margem(custo_total, margem_alvo, cfg):
     """
-    Descobre qual preço cobrar na Shopee para atingir a margem desejada.
+    Descobre qual preço cobrar na Shopee para o vendedor embolsar o custo + o lucro.
 
-    Como a taxa da Shopee muda conforme a faixa de preço, não dá pra resolver com
-    uma fórmula direta. Então a gente ITERA: começa perto do custo e vai subindo o
-    preço de pouquinho em pouquinho, calculando a taxa e a margem real, até a
-    margem alcançar (ou passar) o alvo.
+    Aqui a "margem" é MARKUP SOBRE O CUSTO (igual à calculadora Shopee 3D):
+    - alvo = custo * (1 + margem/100)  -> é quanto o vendedor precisa SOBRAR depois
+      de pagar a Shopee (comissão + taxa fixa) e o imposto.
 
-    Retorna (preco_sugerido, taxa_nesse_preco, lucro_final) ou None se não achar.
+    Como a taxa muda por faixa de preço, resolvemos por álgebra dentro de cada faixa:
+        preço - comissão(preço) - taxa_fixa - imposto(preço) = alvo
+    Testamos as faixas em ordem e ficamos com a solução que cai dentro da faixa.
+
+    Retorna (preco_sugerido, taxa_shopee_total, lucro_final) ou None.
     """
     if custo_total <= 0:
         return None
 
-    imposto_pct = cfg["imposto_pct"]
+    imp = cfg["imposto_pct"] / 100.0     # imposto como fração (ex.: 0.05)
     cpf = cfg["cpf_alto_volume"]
 
-    preco = custo_total       # começa no custo (margem seria negativa aqui)
-    passo = 0.10              # sobe de 10 em 10 centavos
-    limite = custo_total * 50 + 1000  # trava de segurança pra não rodar pra sempre
+    # Quanto o vendedor precisa SOBRAR (custo + o lucro que é markup sobre o custo).
+    alvo = custo_total * (1 + margem_alvo / 100.0)
 
-    while preco <= limite:
-        taxa = taxa_shopee(preco, cpf)
-        imposto = preco * (imposto_pct / 100)
-        lucro = preco - custo_total - taxa - imposto
-        margem = (lucro / preco * 100) if preco > 0 else 0.0
+    # Faixa < 8: taxa = 20% de comissão + 50% do preço fixo => 70% do preço.
+    #   preço * (1 - 0.20 - 0.50 - imp) = alvo
+    denom_sub8 = 1 - 0.20 - 0.50 - imp
+    if denom_sub8 > 0:
+        p = alvo / denom_sub8
+        if 0 < p < 8:
+            return _montar_preco(p, custo_total, cfg)
 
-        if margem >= margem_alvo:
-            # Arredonda o preço pra cima em centavos e recalcula pra mostrar bonito.
-            preco = round(preco, 2)
-            taxa = taxa_shopee(preco, cpf)
-            imposto = preco * (imposto_pct / 100)
-            lucro = preco - custo_total - taxa - imposto
-            return preco, taxa, lucro
+    # Faixas >= 8: (mínimo, máximo, comissão%, taxa_fixa)
+    faixas = [
+        (8, 80, 0.20, 4),
+        (80, 200, 0.14, 16),
+        (200, 500, 0.14, 20),
+        (500, float("inf"), 0.14, 26),
+    ]
+    for minimo, maximo, comm, fixo in faixas:
+        fixo_total = fixo + (3 if cpf else 0)     # CPF alto volume soma R$3
+        denom = 1 - comm - imp
+        if denom <= 0:
+            continue
+        p = (alvo + fixo_total) / denom
+        if minimo <= p < maximo:
+            return _montar_preco(round(p, 2), custo_total, cfg)
 
-        preco += passo
+    # Fallback raro (só nas fronteiras de faixa): usa a faixa mais alta.
+    denom = 1 - 0.14 - imp
+    if denom <= 0:
+        return None
+    p = (alvo + 26 + (3 if cpf else 0)) / denom
+    return _montar_preco(round(p, 2), custo_total, cfg)
 
-    return None  # não foi possível atingir a margem dentro do limite
+
+def _montar_preco(preco, custo_total, cfg):
+    """Monta a resposta final (preço, taxa total da Shopee, lucro) de forma consistente."""
+    taxa = taxa_shopee(preco, cfg["cpf_alto_volume"])
+    imposto = preco * (cfg["imposto_pct"] / 100.0)
+    lucro = preco - taxa - imposto - custo_total
+    return preco, taxa, lucro
 
 
 def pagina_calculadora(cfg):
     st.title("🧮 Calculadora de preço (reversa)")
     st.caption(
-        "Diga o custo do produto e a margem que você quer. "
+        "Diga o custo do produto e a margem (markup sobre o custo) que você quer. "
         "O app descobre o preço a cobrar na Shopee já considerando a taxa da faixa certa."
     )
 
@@ -724,12 +748,12 @@ def pagina_calculadora(cfg):
         )
     with col2:
         margem_alvo = st.number_input(
-            "Margem desejada (%)",
+            "Margem desejada (%) — markup sobre o custo",
             min_value=0.0,
-            max_value=95.0,
-            value=30.0,
-            step=1.0,
-            format="%.1f",
+            max_value=500.0,
+            value=float(cfg["margem_desejada"]),
+            step=10.0,
+            format="%.0f",
         )
 
     if st.button("Calcular preço sugerido", type="primary"):
@@ -742,13 +766,14 @@ def pagina_calculadora(cfg):
             )
         else:
             preco, taxa, lucro = resultado
-            margem_real = (lucro / preco * 100) if preco > 0 else 0.0
+            # Margem real = markup sobre o custo (lucro / custo), igual à calculadora.
+            margem_real = (lucro / custo_total * 100) if custo_total > 0 else 0.0
 
             st.success(f"💡 Preço sugerido: **R$ {preco:.2f}**")
             c1, c2, c3 = st.columns(3)
             c1.metric("Taxa que a Shopee cobra", f"R$ {taxa:.2f}")
             c2.metric("Lucro final", f"R$ {lucro:.2f}")
-            c3.metric("Margem alcançada", f"{margem_real:.1f}%")
+            c3.metric("Margem real (s/ custo)", f"{margem_real:.0f}%")
 
             if cfg["imposto_pct"] > 0:
                 st.caption(
