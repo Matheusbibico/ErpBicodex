@@ -184,6 +184,7 @@ def calcular_linha(produto, cfg):
         "Nome": produto.get("nome", ""),
         "SKU": produto.get("sku", ""),
         "Margem alvo (%)": margem_alvo,
+        "Custo filamento": custo_material,
         "Custo total": custo_total,
         "Preço sugerido": preco,
         "Taxa Shopee": taxa,
@@ -337,6 +338,7 @@ def mostrar_tabela_resultados(df_result):
         .format(
             {
                 "Margem alvo (%)": "{:.0f}%",
+                "Custo filamento": "R$ {:.2f}",
                 "Custo total": "R$ {:.2f}",
                 "Preço sugerido": "R$ {:.2f}",
                 "Taxa Shopee": "R$ {:.2f}",
