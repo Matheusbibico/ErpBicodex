@@ -1,0 +1,16 @@
+# Banco local SQLite
+erp.db
+
+# Cache do Python
+__pycache__/
+*.pyc
+
+# Ambiente virtual
+venv/
+.venv/
+
+# Segredos do Streamlit
+.streamlit/secrets.toml
+
+# Cópias temporárias dos .3mf (a fonte da verdade é o banco)
+static/*.3mf

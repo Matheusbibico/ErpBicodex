@@ -1,0 +1,4 @@
+# Permite o app servir arquivos da pasta "static/" por URL
+# (necessário para o link "Abrir no Bambu Studio" funcionar).
+[server]
+enableStaticServing = true
