@@ -365,7 +365,7 @@ def barra_lateral():
 
 
 # ---------------------------------------------------------------------------
-# Ajuda visual: pintar as linhas de lucro (verde = ok, vermelho = prejuízo).
+# Ajuda visual: selo de status na tabela de resultados (verde = lucro, vermelho = prejuízo).
 # ---------------------------------------------------------------------------
 def _estilizar_status(valor):
     """
