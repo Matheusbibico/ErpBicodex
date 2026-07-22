@@ -266,59 +266,65 @@ def barra_lateral():
 
     st.sidebar.header("⚙️ Configurações")
 
-    # Cada campo já vem preenchido com o valor salvo.
-    preco_filamento = st.sidebar.number_input(
-        "Preço do filamento por kg (R$)",
-        min_value=0.0,
-        value=float(cfg["preco_filamento_kg"]),
-        step=1.0,
-        format="%.2f",
-    )
-    custo_maquina = st.sidebar.number_input(
-        "Custo de máquina/energia por hora (R$)",
-        min_value=0.0,
-        value=float(cfg["custo_maquina_hora"]),
-        step=0.10,
-        format="%.2f",
-    )
-    embalagem_padrao = st.sidebar.number_input(
-        "Custo padrão de embalagem (R$)",
-        min_value=0.0,
-        value=float(cfg["embalagem_padrao"]),
-        step=0.10,
-        format="%.2f",
-    )
-    outros_custos = st.sidebar.number_input(
-        "Outros custos por peça (R$)",
-        min_value=0.0,
-        value=float(cfg["outros_custos"]),
-        step=0.10,
-        format="%.2f",
-        help="Custos fixos por peça, ex.: argola, ímã, fita. Somado no custo de todo produto.",
-    )
-    imposto_pct = st.sidebar.number_input(
-        "Imposto sobre a venda (%)",
-        min_value=0.0,
-        max_value=100.0,
-        value=float(cfg["imposto_pct"]),
-        step=0.5,
-        format="%.2f",
-    )
-    margem_desejada = st.sidebar.number_input(
-        "Margem de lucro desejada (%)",
-        min_value=0.0,
-        max_value=500.0,
-        value=float(cfg["margem_desejada"]),
-        step=10.0,
-        format="%.0f",
-        help="MARKUP SOBRE O CUSTO (igual à calculadora): 50% = ganhar metade do "
-        "custo por cima; 150% = o mínimo saudável. O preço é calculado sozinho.",
-    )
-    cpf_alto_volume = st.sidebar.toggle(
-        "Sou CPF com +450 pedidos em 90 dias",
-        value=bool(cfg["cpf_alto_volume"]),
-        help="Se marcado, a Shopee cobra +R$3 por item (para preços a partir de R$8).",
-    )
+    # Grupo 1: custos de produção (filamento, máquina, embalagem, outros).
+    with st.sidebar.container(border=True):
+        st.caption("💵 Custos de produção")
+        preco_filamento = st.number_input(
+            "Preço do filamento por kg (R$)",
+            min_value=0.0,
+            value=float(cfg["preco_filamento_kg"]),
+            step=1.0,
+            format="%.2f",
+        )
+        custo_maquina = st.number_input(
+            "Custo de máquina/energia por hora (R$)",
+            min_value=0.0,
+            value=float(cfg["custo_maquina_hora"]),
+            step=0.10,
+            format="%.2f",
+        )
+        embalagem_padrao = st.number_input(
+            "Custo padrão de embalagem (R$)",
+            min_value=0.0,
+            value=float(cfg["embalagem_padrao"]),
+            step=0.10,
+            format="%.2f",
+        )
+        outros_custos = st.number_input(
+            "Outros custos por peça (R$)",
+            min_value=0.0,
+            value=float(cfg["outros_custos"]),
+            step=0.10,
+            format="%.2f",
+            help="Custos fixos por peça, ex.: argola, ímã, fita. Somado no custo de todo produto.",
+        )
+
+    # Grupo 2: parâmetros de venda (imposto, margem, CPF alto volume).
+    with st.sidebar.container(border=True):
+        st.caption("🛒 Vendas")
+        imposto_pct = st.number_input(
+            "Imposto sobre a venda (%)",
+            min_value=0.0,
+            max_value=100.0,
+            value=float(cfg["imposto_pct"]),
+            step=0.5,
+            format="%.2f",
+        )
+        margem_desejada = st.number_input(
+            "Margem de lucro desejada (%)",
+            min_value=0.0,
+            max_value=500.0,
+            value=float(cfg["margem_desejada"]),
+            step=10.0,
+            format="%.0f",
+            help="MARKUP SOBRE O CUSTO (igual à calculadora): 50% = ganhar metade do "
+            "custo por cima; 150% = o mínimo saudável. O preço é calculado sozinho.",
+        )
+        cpf_alto_volume = st.toggle(
+            "Sou CPF com +450 pedidos em 90 dias",
+            value=bool(cfg["cpf_alto_volume"]),
+            help="Se marcado, a Shopee cobra +R$3 por item (para preços a partir de R$8).",
+        )
 
     # Botão pra salvar as configurações no banco.
     if st.sidebar.button("💾 Salvar configurações"):
