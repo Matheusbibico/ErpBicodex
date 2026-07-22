@@ -31,6 +31,53 @@ from shopee import taxa_shopee
 st.set_page_config(page_title="Bicodex", page_icon="🖨️", layout="wide")
 
 
+def _aplicar_estilo():
+    """
+    Injeta um bloco único de CSS para dar acabamento visual ao tema (que já
+    vem do .streamlit/config.toml). Só estiliza o que o tema nativo do
+    Streamlit não alcança: fonte, cards de métrica, cantos das tabelas,
+    botões e expanders. Pra mudar uma cor/raio no futuro, é só editar aqui.
+    """
+    st.markdown(
+        """
+        <style>
+        /* Fonte Inter (Google Fonts) aplicada no app inteiro. */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        html, body, [class*="css"] {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Cards de métrica (st.metric) do Dashboard. */
+        div[data-testid="stMetric"] {
+            background-color: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 0.75rem;
+            padding: 1rem 1rem 0.5rem 1rem;
+        }
+
+        /* Tabelas (st.dataframe / st.data_editor): cantos arredondados. */
+        div[data-testid="stDataFrame"], div[data-testid="stDataEditor"] {
+            border-radius: 0.75rem;
+            overflow: hidden;
+        }
+
+        /* Botões: cantos arredondados e transição suave no hover. */
+        div.stButton > button, div.stDownloadButton > button {
+            border-radius: 0.5rem;
+            transition: all 0.15s ease-in-out;
+        }
+
+        /* Expanders e containers com borda: mesma linguagem visual dos cards. */
+        div[data-testid="stExpander"] {
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 0.75rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def novo_sku():
     """Gera um código interno único para o produto (ex: P-1A2B3C)."""
     return "P-" + uuid.uuid4().hex[:6].upper()
@@ -842,6 +889,9 @@ def pagina_calculadora(cfg):
 # PONTO DE ENTRADA DO APP
 # ---------------------------------------------------------------------------
 def main():
+    # Aplica o CSS de acabamento (cards, cantos arredondados, fonte).
+    _aplicar_estilo()
+
     # Garante que as tabelas existem e a config padrão está lá.
     db.init_db()
 
