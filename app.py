@@ -47,14 +47,6 @@ def _aplicar_estilo():
             font-family: 'Inter', sans-serif;
         }
 
-        /* Cards de métrica (st.metric) do Dashboard. */
-        div[data-testid="stMetric"] {
-            background-color: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 0.75rem;
-            padding: 1rem 1rem 0.5rem 1rem;
-        }
-
         /* Tabelas (st.dataframe / st.data_editor): cantos arredondados. */
         div[data-testid="stDataFrame"], div[data-testid="stDataEditor"] {
             border-radius: 0.75rem;
@@ -69,7 +61,7 @@ def _aplicar_estilo():
 
         /* Expanders e containers com borda: mesma linguagem visual dos cards. */
         div[data-testid="stExpander"] {
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(128, 128, 128, 0.3);
             border-radius: 0.75rem;
         }
         </style>
@@ -460,7 +452,7 @@ def pagina_produtos(cfg):
         db.salvar_produtos(editado)
         st.rerun()
 
-    # ---- Resultados calculados (segunda tabela, colorida) ----
+    # ---- Resultados calculados (segunda tabela, com selo de status) ----
     st.divider()
     st.subheader("💰 Resultados (preço sugerido, custo, taxa, lucro e margem)")
     st.caption(
@@ -771,7 +763,7 @@ def pagina_dashboard(cfg):
     grafico = grafico.set_index("Nome")
     st.bar_chart(grafico)
 
-    # Também mostra a tabela colorida embaixo, pra referência rápida.
+    # Também mostra a tabela com o selo de status embaixo, pra referência rápida.
     st.divider()
     st.subheader("Detalhe por produto")
     mostrar_tabela_resultados(df_result)
