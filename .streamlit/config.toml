@@ -2,3 +2,13 @@
 # (necessário para o link "Abrir no Bambu Studio" funcionar).
 [server]
 enableStaticServing = true
+
+# Tema visual do app (moderno/escuro). O usuário ainda pode trocar para
+# claro pelo seletor nativo do Streamlit (menu ⋮ > Settings).
+[theme]
+base = "dark"
+primaryColor = "#6C63FF"
+backgroundColor = "#0E1117"
+secondaryBackgroundColor = "#181C25"
+textColor = "#E4E6EB"
+font = "sans serif"
