@@ -15,5 +15,8 @@ venv/
 # Cópias temporárias dos .3mf (a fonte da verdade é o banco)
 static/*.3mf
 
+# Scratch de progresso do subagent-driven-development
+.superpowers/
+
 # Configurações locais e worktrees do Claude Code
 .claude/

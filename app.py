@@ -31,6 +31,45 @@ from shopee import taxa_shopee
 st.set_page_config(page_title="Bicodex", page_icon="🖨️", layout="wide")
 
 
+def _aplicar_estilo():
+    """
+    Injeta um bloco único de CSS para dar acabamento visual ao tema (que já
+    vem do .streamlit/config.toml). Só estiliza o que o tema nativo do
+    Streamlit não alcança: fonte, cards de métrica, cantos das tabelas,
+    botões e expanders. Pra mudar uma cor/raio no futuro, é só editar aqui.
+    """
+    st.markdown(
+        """
+        <style>
+        /* Fonte Inter (Google Fonts) aplicada no app inteiro. */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        html, body, [class*="css"] {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Tabelas (st.dataframe / st.data_editor): cantos arredondados. */
+        div[data-testid="stDataFrame"], div[data-testid="stDataEditor"] {
+            border-radius: 0.75rem;
+            overflow: hidden;
+        }
+
+        /* Botões: cantos arredondados e transição suave no hover. */
+        div.stButton > button, div.stDownloadButton > button {
+            border-radius: 0.5rem;
+            transition: all 0.15s ease-in-out;
+        }
+
+        /* Expanders e containers com borda: mesma linguagem visual dos cards. */
+        div[data-testid="stExpander"] {
+            border: 1px solid rgba(128, 128, 128, 0.3);
+            border-radius: 0.75rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def novo_sku():
     """Gera um código interno único para o produto (ex: P-1A2B3C)."""
     return "P-" + uuid.uuid4().hex[:6].upper()
@@ -179,6 +218,7 @@ def calcular_linha(produto, cfg):
     imposto = preco * (cfg["imposto_pct"] / 100)
     # Margem REAL = markup sobre o custo (lucro dividido pelo custo), igual à calculadora.
     margem_real = (lucro / custo_total * 100) if custo_total > 0 else 0.0
+    status = "✓ Lucro" if lucro >= 0 else "✗ Prejuízo"
 
     return {
         "Nome": produto.get("nome", ""),
@@ -189,6 +229,7 @@ def calcular_linha(produto, cfg):
         "Preço sugerido": preco,
         "Taxa Shopee": taxa,
         "Imposto": imposto,
+        "Status": status,
         "Lucro (R$)": lucro,
         "Margem real (%)": margem_real,
     }
@@ -217,59 +258,65 @@ def barra_lateral():
 
     st.sidebar.header("⚙️ Configurações")
 
-    # Cada campo já vem preenchido com o valor salvo.
-    preco_filamento = st.sidebar.number_input(
-        "Preço do filamento por kg (R$)",
-        min_value=0.0,
-        value=float(cfg["preco_filamento_kg"]),
-        step=1.0,
-        format="%.2f",
-    )
-    custo_maquina = st.sidebar.number_input(
-        "Custo de máquina/energia por hora (R$)",
-        min_value=0.0,
-        value=float(cfg["custo_maquina_hora"]),
-        step=0.10,
-        format="%.2f",
-    )
-    embalagem_padrao = st.sidebar.number_input(
-        "Custo padrão de embalagem (R$)",
-        min_value=0.0,
-        value=float(cfg["embalagem_padrao"]),
-        step=0.10,
-        format="%.2f",
-    )
-    outros_custos = st.sidebar.number_input(
-        "Outros custos por peça (R$)",
-        min_value=0.0,
-        value=float(cfg["outros_custos"]),
-        step=0.10,
-        format="%.2f",
-        help="Custos fixos por peça, ex.: argola, ímã, fita. Somado no custo de todo produto.",
-    )
-    imposto_pct = st.sidebar.number_input(
-        "Imposto sobre a venda (%)",
-        min_value=0.0,
-        max_value=100.0,
-        value=float(cfg["imposto_pct"]),
-        step=0.5,
-        format="%.2f",
-    )
-    margem_desejada = st.sidebar.number_input(
-        "Margem de lucro desejada (%)",
-        min_value=0.0,
-        max_value=500.0,
-        value=float(cfg["margem_desejada"]),
-        step=10.0,
-        format="%.0f",
-        help="MARKUP SOBRE O CUSTO (igual à calculadora): 50% = ganhar metade do "
-        "custo por cima; 150% = o mínimo saudável. O preço é calculado sozinho.",
-    )
-    cpf_alto_volume = st.sidebar.toggle(
-        "Sou CPF com +450 pedidos em 90 dias",
-        value=bool(cfg["cpf_alto_volume"]),
-        help="Se marcado, a Shopee cobra +R$3 por item (para preços a partir de R$8).",
-    )
+    # Grupo 1: custos de produção (filamento, máquina, embalagem, outros).
+    with st.sidebar.container(border=True):
+        st.caption("💵 Custos de produção")
+        preco_filamento = st.number_input(
+            "Preço do filamento por kg (R$)",
+            min_value=0.0,
+            value=float(cfg["preco_filamento_kg"]),
+            step=1.0,
+            format="%.2f",
+        )
+        custo_maquina = st.number_input(
+            "Custo de máquina/energia por hora (R$)",
+            min_value=0.0,
+            value=float(cfg["custo_maquina_hora"]),
+            step=0.10,
+            format="%.2f",
+        )
+        embalagem_padrao = st.number_input(
+            "Custo padrão de embalagem (R$)",
+            min_value=0.0,
+            value=float(cfg["embalagem_padrao"]),
+            step=0.10,
+            format="%.2f",
+        )
+        outros_custos = st.number_input(
+            "Outros custos por peça (R$)",
+            min_value=0.0,
+            value=float(cfg["outros_custos"]),
+            step=0.10,
+            format="%.2f",
+            help="Custos fixos por peça, ex.: argola, ímã, fita. Somado no custo de todo produto.",
+        )
+
+    # Grupo 2: parâmetros de venda (imposto, margem, CPF alto volume).
+    with st.sidebar.container(border=True):
+        st.caption("🛒 Vendas")
+        imposto_pct = st.number_input(
+            "Imposto sobre a venda (%)",
+            min_value=0.0,
+            max_value=100.0,
+            value=float(cfg["imposto_pct"]),
+            step=0.5,
+            format="%.2f",
+        )
+        margem_desejada = st.number_input(
+            "Margem de lucro desejada (%)",
+            min_value=0.0,
+            max_value=500.0,
+            value=float(cfg["margem_desejada"]),
+            step=10.0,
+            format="%.0f",
+            help="MARKUP SOBRE O CUSTO (igual à calculadora): 50% = ganhar metade do "
+            "custo por cima; 150% = o mínimo saudável. O preço é calculado sozinho.",
+        )
+        cpf_alto_volume = st.toggle(
+            "Sou CPF com +450 pedidos em 90 dias",
+            value=bool(cfg["cpf_alto_volume"]),
+            help="Se marcado, a Shopee cobra +R$3 por item (para preços a partir de R$8).",
+        )
 
     # Botão pra salvar as configurações no banco.
     if st.sidebar.button("💾 Salvar configurações"):
@@ -310,31 +357,28 @@ def barra_lateral():
 
 
 # ---------------------------------------------------------------------------
-# Ajuda visual: pintar as linhas de lucro (verde = ok, vermelho = prejuízo).
+# Ajuda visual: selo de status na tabela de resultados (verde = lucro, vermelho = prejuízo).
 # ---------------------------------------------------------------------------
-def _pintar_lucro(linha):
+def _estilizar_status(valor):
     """
-    Recebe uma linha da tabela de resultados e devolve o estilo (cor de fundo E
-    cor do texto). Fixamos o texto escuro para ele NÃO sumir no fundo colorido
-    (isso acontecia no tema escuro: texto branco em cima do verde clarinho).
+    Estiliza só a CÉLULA da coluna "Status" (não a linha inteira) — um selo
+    discreto verde/vermelho, com texto legível em qualquer tema (claro ou
+    escuro), em vez de pintar a tabela toda.
     """
-    if linha["Lucro (R$)"] < 0:
-        estilo = "background-color: #ffb3b3; color: #5c0000"  # vermelho + texto vinho
-    else:
-        estilo = "background-color: #a8e6a3; color: #0b3d0b"  # verde + texto verde-escuro
-    # Aplica o mesmo estilo em todas as colunas daquela linha.
-    return [estilo] * len(linha)
+    if str(valor).startswith("✗"):
+        return "background-color: #4A2020; color: #FF9B9B; border-radius: 0.4rem; font-weight: 600"
+    return "background-color: #1E3A2A; color: #7EE2A8; border-radius: 0.4rem; font-weight: 600"
 
 
 def mostrar_tabela_resultados(df_result):
-    """Mostra a tabela de resultados já formatada em R$ e colorida."""
+    """Mostra a tabela de resultados já formatada em R$, com selo de status."""
     if df_result.empty:
         st.info("Nenhum produto para calcular ainda.")
         return
 
     estilizada = (
         df_result.style
-        .apply(_pintar_lucro, axis=1)
+        .map(_estilizar_status, subset=["Status"])
         .format(
             {
                 "Margem alvo (%)": "{:.0f}%",
@@ -408,7 +452,7 @@ def pagina_produtos(cfg):
         db.salvar_produtos(editado)
         st.rerun()
 
-    # ---- Resultados calculados (segunda tabela, colorida) ----
+    # ---- Resultados calculados (segunda tabela, com selo de status) ----
     st.divider()
     st.subheader("💰 Resultados (preço sugerido, custo, taxa, lucro e margem)")
     st.caption(
@@ -697,10 +741,15 @@ def pagina_dashboard(cfg):
     no_prejuizo = int((df_result["Lucro (R$)"] < 0).sum())
 
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Produtos", num_produtos)
-    col2.metric("Lucro total", f"R$ {lucro_total:.2f}")
-    col3.metric("Margem média", f"{margem_media:.0f}%")
-    col4.metric("No prejuízo", no_prejuizo)
+    metricas = [
+        (col1, "📦 Produtos", str(num_produtos)),
+        (col2, "💰 Lucro total", f"R$ {lucro_total:.2f}"),
+        (col3, "📈 Margem média", f"{margem_media:.0f}%"),
+        (col4, "⚠️ No prejuízo", str(no_prejuizo)),
+    ]
+    for coluna, rotulo, valor in metricas:
+        with coluna.container(border=True):
+            st.metric(rotulo, valor)
 
     st.divider()
 
@@ -714,7 +763,7 @@ def pagina_dashboard(cfg):
     grafico = grafico.set_index("Nome")
     st.bar_chart(grafico)
 
-    # Também mostra a tabela colorida embaixo, pra referência rápida.
+    # Também mostra a tabela com o selo de status embaixo, pra referência rápida.
     st.divider()
     st.subheader("Detalhe por produto")
     mostrar_tabela_resultados(df_result)
@@ -842,6 +891,9 @@ def pagina_calculadora(cfg):
 # PONTO DE ENTRADA DO APP
 # ---------------------------------------------------------------------------
 def main():
+    # Aplica o CSS de acabamento (cards, cantos arredondados, fonte).
+    _aplicar_estilo()
+
     # Garante que as tabelas existem e a config padrão está lá.
     db.init_db()
 
