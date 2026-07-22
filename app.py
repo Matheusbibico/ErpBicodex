@@ -226,6 +226,7 @@ def calcular_linha(produto, cfg):
     imposto = preco * (cfg["imposto_pct"] / 100)
     # Margem REAL = markup sobre o custo (lucro dividido pelo custo), igual à calculadora.
     margem_real = (lucro / custo_total * 100) if custo_total > 0 else 0.0
+    status = "✓ Lucro" if lucro >= 0 else "✗ Prejuízo"
 
     return {
         "Nome": produto.get("nome", ""),
@@ -236,6 +237,7 @@ def calcular_linha(produto, cfg):
         "Preço sugerido": preco,
         "Taxa Shopee": taxa,
         "Imposto": imposto,
+        "Status": status,
         "Lucro (R$)": lucro,
         "Margem real (%)": margem_real,
     }
@@ -359,29 +361,26 @@ def barra_lateral():
 # ---------------------------------------------------------------------------
 # Ajuda visual: pintar as linhas de lucro (verde = ok, vermelho = prejuízo).
 # ---------------------------------------------------------------------------
-def _pintar_lucro(linha):
+def _estilizar_status(valor):
     """
-    Recebe uma linha da tabela de resultados e devolve o estilo (cor de fundo E
-    cor do texto). Fixamos o texto escuro para ele NÃO sumir no fundo colorido
-    (isso acontecia no tema escuro: texto branco em cima do verde clarinho).
+    Estiliza só a CÉLULA da coluna "Status" (não a linha inteira) — um selo
+    discreto verde/vermelho, com texto legível em qualquer tema (claro ou
+    escuro), em vez de pintar a tabela toda.
     """
-    if linha["Lucro (R$)"] < 0:
-        estilo = "background-color: #ffb3b3; color: #5c0000"  # vermelho + texto vinho
-    else:
-        estilo = "background-color: #a8e6a3; color: #0b3d0b"  # verde + texto verde-escuro
-    # Aplica o mesmo estilo em todas as colunas daquela linha.
-    return [estilo] * len(linha)
+    if str(valor).startswith("✗"):
+        return "background-color: #4A2020; color: #FF9B9B; border-radius: 0.4rem; font-weight: 600"
+    return "background-color: #1E3A2A; color: #7EE2A8; border-radius: 0.4rem; font-weight: 600"
 
 
 def mostrar_tabela_resultados(df_result):
-    """Mostra a tabela de resultados já formatada em R$ e colorida."""
+    """Mostra a tabela de resultados já formatada em R$, com selo de status."""
     if df_result.empty:
         st.info("Nenhum produto para calcular ainda.")
         return
 
     estilizada = (
         df_result.style
-        .apply(_pintar_lucro, axis=1)
+        .map(_estilizar_status, subset=["Status"])
         .format(
             {
                 "Margem alvo (%)": "{:.0f}%",
