@@ -406,68 +406,75 @@ def pagina_produtos(cfg):
         "já com a taxa da Shopee, e salva automaticamente."
     )
 
-    # ---- Formulário para ADICIONAR um produto (com autofill do .3mf) ----
-    formulario_adicionar(cfg)
-
-    st.divider()
-
-    # ---- Lista de produtos (edita direto e SALVA SOZINHO) ----
-    st.subheader("📋 Meus produtos")
-    df_db = db.ler_produtos()
-
-    if df_db.empty:
-        st.info("Nenhum produto ainda. Adicione o primeiro aí em cima. 👆")
-        return
-
-    st.caption(
-        "Pode editar direto na tabela — as mudanças são salvas automaticamente. "
-        "A coluna **Margem alvo** deixa você pedir mais lucro num produto específico "
-        "(deixe 0 para usar a margem padrão das Configurações). "
-        "Para apagar um produto, selecione a linha e aperte a tecla Delete."
+    aba_produtos, aba_resultados, aba_arquivos = st.tabs(
+        ["📋 Produtos", "💰 Resultados", "🧊 Arquivos 3mf"]
     )
 
-    # A tabela mostra só o que interessa editar; o preço é calculado sozinho.
-    editado = st.data_editor(
-        df_db,
-        num_rows="dynamic",
-        width="stretch",
-        key="editor_produtos",
-        column_order=["nome", "sku", "gramas", "horas", "margem_pct"],
-        column_config={
-            "nome": st.column_config.TextColumn("Nome"),
-            "sku": st.column_config.TextColumn("Código", disabled=True),
-            "gramas": st.column_config.NumberColumn("Gramas filamento", min_value=0.0, step=1.0),
-            "horas": st.column_config.NumberColumn("Horas impressão", min_value=0.0, step=0.5),
-            "margem_pct": st.column_config.NumberColumn(
-                "Margem alvo (%)", min_value=0.0, max_value=500.0, step=10.0, format="%.0f",
-                help="Markup sobre o custo. 0 = usa a margem padrão das Configurações.",
-            ),
-        },
-    )
+    with aba_produtos:
+        # ---- Formulário para ADICIONAR um produto (com autofill do .3mf) ----
+        formulario_adicionar(cfg)
 
-    # SALVAMENTO AUTOMÁTICO: se a tabela mudou, garante um código pra cada produto
-    # novo, salva no banco e recarrega. (É seguro chamar sempre; só age se mudou.)
-    if _tabela_mudou(df_db, editado):
-        editado = _garantir_codigos(editado)
-        db.salvar_produtos(editado)
-        st.rerun()
+        st.divider()
 
-    # ---- Resultados calculados (segunda tabela, com selo de status) ----
-    st.divider()
-    st.subheader("💰 Resultados (preço sugerido, custo, taxa, lucro e margem)")
-    st.caption(
-        f"Usando: filamento R$ {cfg['preco_filamento_kg']:.2f}/kg · "
-        f"máquina R$ {cfg['custo_maquina_hora']:.2f}/h · "
-        f"embalagem R$ {cfg['embalagem_padrao']:.2f} · "
-        f"outros R$ {cfg['outros_custos']:.2f} · "
-        f"margem padrão {cfg['margem_desejada']:.0f}% (tudo das Configurações)."
-    )
-    df_result = calcular_tabela(editado, cfg)
-    mostrar_tabela_resultados(df_result)
+        # ---- Lista de produtos (edita direto e SALVA SOZINHO) ----
+        st.subheader("📋 Meus produtos")
+        df_db = db.ler_produtos()
 
-    # ---- Arquivos .3mf (baixar / abrir no Bambu Studio) ----
-    st.divider()
-    secao_arquivos_3mf()
+        if df_db.empty:
+            st.info("Nenhum produto ainda. Adicione o primeiro aí em cima. 👆")
+        else:
+            st.caption(
+                "Pode editar direto na tabela — as mudanças são salvas automaticamente. "
+                "A coluna **Margem alvo** deixa você pedir mais lucro num produto específico "
+                "(deixe 0 para usar a margem padrão das Configurações). "
+                "Para apagar um produto, selecione a linha e aperte a tecla Delete."
+            )
+
+            # A tabela mostra só o que interessa editar; o preço é calculado sozinho.
+            editado = st.data_editor(
+                df_db,
+                num_rows="dynamic",
+                width="stretch",
+                key="editor_produtos",
+                column_order=["nome", "sku", "gramas", "horas", "margem_pct"],
+                column_config={
+                    "nome": st.column_config.TextColumn("Nome"),
+                    "sku": st.column_config.TextColumn("Código", disabled=True),
+                    "gramas": st.column_config.NumberColumn("Gramas filamento", min_value=0.0, step=1.0),
+                    "horas": st.column_config.NumberColumn("Horas impressão", min_value=0.0, step=0.5),
+                    "margem_pct": st.column_config.NumberColumn(
+                        "Margem alvo (%)", min_value=0.0, max_value=500.0, step=10.0, format="%.0f",
+                        help="Markup sobre o custo. 0 = usa a margem padrão das Configurações.",
+                    ),
+                },
+            )
+
+            # SALVAMENTO AUTOMÁTICO: se a tabela mudou, garante um código pra cada produto
+            # novo, salva no banco e recarrega. (É seguro chamar sempre; só age se mudou.)
+            if _tabela_mudou(df_db, editado):
+                editado = _garantir_codigos(editado)
+                db.salvar_produtos(editado)
+                st.rerun()
+
+    with aba_resultados:
+        st.subheader("💰 Resultados (preço sugerido, custo, taxa, lucro e margem)")
+        df_produtos = db.ler_produtos()
+
+        if df_produtos.empty:
+            st.info("Cadastre produtos na aba 📋 Produtos para ver os resultados.")
+        else:
+            st.caption(
+                f"Usando: filamento R$ {cfg['preco_filamento_kg']:.2f}/kg · "
+                f"máquina R$ {cfg['custo_maquina_hora']:.2f}/h · "
+                f"embalagem R$ {cfg['embalagem_padrao']:.2f} · "
+                f"outros R$ {cfg['outros_custos']:.2f} · "
+                f"margem padrão {cfg['margem_desejada']:.0f}% (tudo das Configurações)."
+            )
+            df_result = calcular_tabela(df_produtos, cfg)
+            mostrar_tabela_resultados(df_result)
+
+    with aba_arquivos:
+        secao_arquivos_3mf()
 
 
 # --- Funções de apoio da página Produtos -----------------------------------
