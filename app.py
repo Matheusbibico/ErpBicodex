@@ -743,10 +743,15 @@ def pagina_dashboard(cfg):
     no_prejuizo = int((df_result["Lucro (R$)"] < 0).sum())
 
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Produtos", num_produtos)
-    col2.metric("Lucro total", f"R$ {lucro_total:.2f}")
-    col3.metric("Margem média", f"{margem_media:.0f}%")
-    col4.metric("No prejuízo", no_prejuizo)
+    metricas = [
+        (col1, "📦 Produtos", str(num_produtos)),
+        (col2, "💰 Lucro total", f"R$ {lucro_total:.2f}"),
+        (col3, "📈 Margem média", f"{margem_media:.0f}%"),
+        (col4, "⚠️ No prejuízo", str(no_prejuizo)),
+    ]
+    for coluna, rotulo, valor in metricas:
+        with coluna.container(border=True):
+            st.metric(rotulo, valor)
 
     st.divider()
 
