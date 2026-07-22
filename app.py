@@ -458,6 +458,8 @@ def pagina_produtos(cfg):
 
     with aba_resultados:
         st.subheader("💰 Resultados (preço sugerido, custo, taxa, lucro e margem)")
+        # Lê direto do banco (de propósito) — mantém esta aba independente
+        # da aba Produtos, em vez de reaproveitar a variável 'editado' de lá.
         df_produtos = db.ler_produtos()
 
         if df_produtos.empty:
