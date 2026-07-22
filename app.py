@@ -845,22 +845,25 @@ def _montar_preco(preco, custo_total, cfg):
 
 
 def pagina_calculadora(cfg):
-    st.title("🧮 Calculadora de preço (reversa)")
+    st.title("🧮 Calculadora de preço")
     st.caption(
-        "Diga o custo do produto e a margem (markup sobre o custo) que você quer. "
-        "O app descobre o preço a cobrar na Shopee já considerando a taxa da faixa certa."
+        "Diga o custo do produto. Na aba 💡 Preço sugerido, informe a margem "
+        "desejada e descubra o preço a cobrar na Shopee. Na aba ✏️ Meu preço, "
+        "ajuste esse valor e veja o lucro e a margem reais para o preço que "
+        "você decidir cobrar."
     )
 
-    col1, col2 = st.columns(2)
-    with col1:
-        custo_total = st.number_input(
-            "Custo total do produto (R$)",
-            min_value=0.0,
-            value=10.0,
-            step=0.5,
-            format="%.2f",
-        )
-    with col2:
+    custo_total = st.number_input(
+        "Custo total do produto (R$)",
+        min_value=0.0,
+        value=10.0,
+        step=0.5,
+        format="%.2f",
+    )
+
+    aba_sugerido, aba_meu_preco = st.tabs(["💡 Preço sugerido", "✏️ Meu preço"])
+
+    with aba_sugerido:
         margem_alvo = st.number_input(
             "Margem desejada (%) — markup sobre o custo",
             min_value=0.0,
@@ -870,30 +873,77 @@ def pagina_calculadora(cfg):
             format="%.0f",
         )
 
-    if st.button("Calcular preço sugerido", type="primary"):
-        resultado = calcular_preco_para_margem(custo_total, margem_alvo, cfg)
+        if st.button("Calcular preço sugerido", type="primary"):
+            resultado = calcular_preco_para_margem(custo_total, margem_alvo, cfg)
 
-        if resultado is None:
-            st.error(
-                "Não consegui encontrar um preço para essa margem. "
-                "Verifique se o custo é maior que zero e se a margem não é alta demais."
-            )
-        else:
-            preco, taxa, lucro = resultado
-            # Margem real = markup sobre o custo (lucro / custo), igual à calculadora.
-            margem_real = (lucro / custo_total * 100) if custo_total > 0 else 0.0
+            if resultado is None:
+                st.error(
+                    "Não consegui encontrar um preço para essa margem. "
+                    "Verifique se o custo é maior que zero e se a margem não é alta demais."
+                )
+            else:
+                preco, taxa, lucro = resultado
+                # Margem real = markup sobre o custo (lucro / custo), igual à calculadora.
+                margem_real = (lucro / custo_total * 100) if custo_total > 0 else 0.0
 
-            st.success(f"💡 Preço sugerido: **R$ {preco:.2f}**")
+                # Guarda o resultado pra ele não sumir ao trocar de aba ou mexer
+                # em outro campo, e pra alimentar o preço inicial da aba "Meu preço".
+                st.session_state["calc_resultado"] = {
+                    "preco": preco,
+                    "taxa": taxa,
+                    "lucro": lucro,
+                    "margem_real": margem_real,
+                }
+                st.session_state["preco_manual_valor"] = round(preco, 2)
+                st.session_state["preco_manual_ver"] = (
+                    st.session_state.get("preco_manual_ver", 0) + 1
+                )
+
+        resultado_guardado = st.session_state.get("calc_resultado")
+        if resultado_guardado:
+            st.success(f"💡 Preço sugerido: **R$ {resultado_guardado['preco']:.2f}**")
             c1, c2, c3 = st.columns(3)
-            c1.metric("Taxa que a Shopee cobra", f"R$ {taxa:.2f}")
-            c2.metric("Lucro final", f"R$ {lucro:.2f}")
-            c3.metric("Margem real (s/ custo)", f"{margem_real:.0f}%")
+            c1.metric("Taxa que a Shopee cobra", f"R$ {resultado_guardado['taxa']:.2f}")
+            c2.metric("Lucro final", f"R$ {resultado_guardado['lucro']:.2f}")
+            c3.metric("Margem real (s/ custo)", f"{resultado_guardado['margem_real']:.0f}%")
 
             if cfg["imposto_pct"] > 0:
                 st.caption(
                     f"Cálculo já inclui o imposto de {cfg['imposto_pct']:.1f}% "
                     "configurado na barra lateral."
                 )
+
+    with aba_meu_preco:
+        st.caption(
+            "Ajuste o preço abaixo pra ver o lucro e a margem reais do valor "
+            "que você vai cobrar de fato."
+        )
+
+        ver = st.session_state.get("preco_manual_ver", 0)
+        valor_inicial = st.session_state.get("preco_manual_valor", 0.0)
+
+        preco_manual = st.number_input(
+            "Preço que você vai cobrar (R$)",
+            min_value=0.0,
+            value=float(valor_inicial),
+            step=0.5,
+            format="%.2f",
+            key=f"input_preco_manual_{ver}",
+        )
+
+        if custo_total > 0 and preco_manual > 0:
+            preco, taxa, lucro = _montar_preco(preco_manual, custo_total, cfg)
+            margem_real = (lucro / custo_total * 100) if custo_total > 0 else 0.0
+
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Taxa que a Shopee cobra", f"R$ {taxa:.2f}")
+            c2.metric("Lucro com esse preço", f"R$ {lucro:.2f}")
+            c3.metric("Margem real (s/ custo)", f"{margem_real:.0f}%")
+        else:
+            st.info(
+                "Informe o custo total (acima) e um preço maior que zero pra "
+                "ver o resultado."
+            )
 
 
 # ---------------------------------------------------------------------------
